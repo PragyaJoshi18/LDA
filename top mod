@@ -1,0 +1,298 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
+import pandas as pd
+import numpy as np
+import re
+df= pd.read_csv("C:\\Users\\pjoshi2\\Desktop\\ML data\\incidents_ci.csv",encoding='cp1252')
+df = df[df['close_notes'].notnull()]
+
+
+# In[2]:
+
+
+test = pd.DataFrame([re.split('(Reason for the failure/error\? | Steps taken to resolve the incident\?|Is this a recurring issue\?|What was the business impact\?)', str(x)) for x in df["close_notes"]])
+
+
+# In[3]:
+
+
+#None value in first column indicates no question for that particular incident
+#naming columns
+test.columns=["col"+str(i) for i in range(1, 12)] #12 because total no. of cols +1
+
+
+# In[4]:
+
+
+cols =["col"+str(i) for i in range(1, 12)] #give an extra number while giving the range
+
+
+# In[5]:
+
+
+aa= test
+aa[cols] = aa[cols].apply(lambda x: x.str.strip())
+
+
+# In[6]:
+
+
+del aa['col1'] #this col can be deleted as it does not have any info
+
+
+# In[7]:
+
+
+#splitting into question and answer
+df_new1 = aa[["col2","col3"]]
+df_new1.columns = ['ques','ans']
+df_new2 = aa[["col4","col5"]]
+df_new2.columns = ['ques','ans']
+df_new3 = aa[["col6","col7"]]
+df_new3.columns = ['ques','ans']
+df_new4 = aa[["col8","col9"]]
+df_new4.columns = ['ques','ans']
+df_new5 = aa[["col10","col11"]]
+df_new5.columns = ['ques','ans']
+
+
+# In[8]:
+
+
+#concat all questions in one df having que and ans as 2 columns
+df_rows = pd.concat([df_new1,df_new2, df_new3, df_new4,df_new5])#,df_new6, df_new7,df_new8,df_new9,df_new10, df_new11,df_new12])
+df_rows = df_rows.dropna()#drops the row with atleast one na value as those are que with no answers
+
+
+# In[9]:
+
+
+df_rows
+
+
+# In[78]:
+
+
+#replace empty rows by nan then use drop na 
+df_rows['ans'].replace('', np.nan, inplace=True)
+df_rows.dropna(subset=['ans'], inplace=True)
+
+import nltk
+import string
+from nltk.corpus import stopwords
+stop_words = set(stopwords.words('english'))
+new_stopwords = ['the']
+stop_words = stop_words.union(new_stopwords)
+df_rows['ans'] = df_rows['ans'].map(lambda x: x.lower())
+df_rows['ansnew'] = df_rows['ans'].apply(lambda x: " ".join(x for x in x.split() if x not in stop_words))
+df_rows['ansnew'] = df_rows['ansnew'].apply(lambda x:''.join([i for i in x if i not in string.punctuation]))
+
+
+# In[79]:
+
+
+q1 = df_rows[(df_rows.ques == 'What was the business impact?')]
+q2 = df_rows[(df_rows.ques == 'Reason for the failure/error?')]
+q3 = df_rows[(df_rows.ques == 'Steps taken to resolve the incident?')]
+q4 = df_rows[(df_rows.ques == 'Is this a recurring issue?')]
+
+
+# In[80]:
+
+
+# Load the library with the CountVectorizer method
+from sklearn.feature_extraction.text import CountVectorizer
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set_style('whitegrid')
+get_ipython().run_line_magic('matplotlib', 'inline')
+
+# Initialise the count vectorizer with the English stop words
+count_vectorizer = CountVectorizer(stop_words='english')
+# Fit and transform the processed titles
+count_data = count_vectorizer.fit_transform(q1['ans'])
+
+
+# In[ ]:
+
+
+
+
+
+# In[81]:
+
+
+import warnings
+warnings.simplefilter("ignore", DeprecationWarning)
+# Load the LDA model from sk-learn
+from sklearn.decomposition import LatentDirichletAllocation as LDA
+ 
+# Helper function
+def print_topics(model, count_vectorizer, n_top_words):
+    words = count_vectorizer.get_feature_names()
+    for topic_idx, topic in enumerate(model.components_):
+        print("\nTopic #%d:" % topic_idx)
+        print(" ".join([words[i]
+                        for i in topic.argsort()[:-n_top_words - 1:-1]]))
+
+
+# ###  Q1  What was the business impact?
+
+# In[82]:
+
+
+# Tweak the two parameters below
+number_topics = 5
+number_words = 5
+# Create and fit the LDA model
+lda = LDA(n_components=number_topics, n_jobs=-1)
+lda.fit(count_data)
+# Print the topics found by the LDA model
+print("Topics found via LDA:")
+print_topics(lda, count_vectorizer, number_words)
+
+
+# In[88]:
+
+
+#Intertopic distance plot
+%%time
+from pyLDAvis import sklearn as sklearn_lda
+import pickle 
+import pyLDAvis
+import os
+LDAvis_data_filepath = os.path.join('./ldavis_prepared_'+str(number_topics))
+# # this is a bit time consuming - make the if statement True
+# # if you want to execute visualization prep yourself
+if 1 == 1:
+    LDAvis_prepared = sklearn_lda.prepare(lda, count_data,count_vectorizer)
+
+with open(LDAvis_data_filepath, 'wb') as f:
+    pickle.dump(LDAvis_prepared, f)
+        
+# load the pre-prepared pyLDAvis data from disk
+with open(LDAvis_data_filepath, 'rb') as f:
+    LDAvis_prepared = pickle.load(f)
+LDAvis_prepared
+
+
+# ### Q2 Reason for the failure/error?
+
+# In[91]:
+
+
+count_data2 = count_vectorizer.fit_transform(q2['ans'])
+# Tweak the two parameters below
+number_topics = 5
+number_words = 5
+# Create and fit the LDA model
+lda = LDA(n_components=number_topics, n_jobs=-1)
+lda.fit(count_data2)
+# Print the topics found by the LDA model
+print("Topics found via LDA:")
+print_topics(lda, count_vectorizer, number_words)
+
+
+# In[92]:
+
+
+#Intertopic distance plot
+from pyLDAvis import sklearn as sklearn_lda
+import pickle 
+import pyLDAvis
+import os
+LDAvis_data_filepath = os.path.join('./ldavis_prepared_'+str(number_topics))
+# # this is a bit time consuming - make the if statement True
+# # if you want to execute visualization prep yourself
+if 1 == 1:
+    LDAvis_prepared = sklearn_lda.prepare(lda, count_data2,count_vectorizer)
+
+with open(LDAvis_data_filepath, 'wb') as f:
+    pickle.dump(LDAvis_prepared, f)
+        
+# load the pre-prepared pyLDAvis data from disk
+with open(LDAvis_data_filepath, 'rb') as f:
+    LDAvis_prepared = pickle.load(f)
+LDAvis_prepared
+
+
+# In[93]:
+
+
+count_data3 = count_vectorizer.fit_transform(q2['ans'])
+# Tweak the two parameters below
+number_topics = 5
+number_words = 5
+# Create and fit the LDA model
+lda = LDA(n_components=number_topics, n_jobs=-1)
+lda.fit(count_data3)
+# Print the topics found by the LDA model
+print("Topics found via LDA:")
+print_topics(lda, count_vectorizer, number_words)
+
+
+# In[94]:
+
+
+#Intertopic distance plot
+from pyLDAvis import sklearn as sklearn_lda
+import pickle 
+import pyLDAvis
+import os
+LDAvis_data_filepath = os.path.join('./ldavis_prepared_'+str(number_topics))
+# # this is a bit time consuming - make the if statement True
+# # if you want to execute visualization prep yourself
+if 1 == 1:
+    LDAvis_prepared = sklearn_lda.prepare(lda, count_data2,count_vectorizer)
+
+with open(LDAvis_data_filepath, 'wb') as f:
+    pickle.dump(LDAvis_prepared, f)
+        
+# load the pre-prepared pyLDAvis data from disk
+with open(LDAvis_data_filepath, 'rb') as f:
+    LDAvis_prepared = pickle.load(f)
+LDAvis_prepared
+
+
+# In[95]:
+
+
+count_data4 = count_vectorizer.fit_transform(q2['ans'])
+# Tweak the two parameters below
+number_topics = 5
+number_words = 5
+# Create and fit the LDA model
+lda = LDA(n_components=number_topics, n_jobs=-1)
+lda.fit(count_data4)
+# Print the topics found by the LDA model
+print("Topics found via LDA:")
+print_topics(lda, count_vectorizer, number_words)
+
+
+# In[96]:
+
+
+#Intertopic distance plot
+from pyLDAvis import sklearn as sklearn_lda
+import pickle 
+import pyLDAvis
+import os
+LDAvis_data_filepath = os.path.join('./ldavis_prepared_'+str(number_topics))
+# # this is a bit time consuming - make the if statement True
+# # if you want to execute visualization prep yourself
+if 1 == 1:
+    LDAvis_prepared = sklearn_lda.prepare(lda, count_data2,count_vectorizer)
+
+with open(LDAvis_data_filepath, 'wb') as f:
+    pickle.dump(LDAvis_prepared, f)
+        
+# load the pre-prepared pyLDAvis data from disk
+with open(LDAvis_data_filepath, 'rb') as f:
+    LDAvis_prepared = pickle.load(f)
+LDAvis_prepared
+
