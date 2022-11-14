@@ -7,7 +7,7 @@
 import pandas as pd
 import numpy as np
 import re
-df= pd.read_csv("C:\\Users\\pjoshi2\\Desktop\\ML data\\incidents_ci.csv",encoding='cp1252')
+df= pd.read_csv("C:\\Users\\acer\\Desktop\\ML projects\\ML data\\incidents_ci.csv",encoding='cp1252')
 df = df[df['close_notes'].notnull()]
 
 
